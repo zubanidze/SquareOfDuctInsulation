@@ -25,10 +25,6 @@ namespace DuctInsulationSq
                 View = doc.ActiveView
             };
             double area = 0;
-            double face1ToDelete = 0;
-            double face2ToDelete = 0;
-            double face3ToDelete = 0;
-            int amountOfBidirectionalConnectors = 0;
             var geometryElement = element.get_Geometry(options);
             var mechEl = element.MEPModel as MechanicalFitting;
             foreach ( var geomObj in geometryElement)
@@ -37,59 +33,28 @@ namespace DuctInsulationSq
                 {
                     var geomInstance = geomObj as GeometryInstance;
                     var geomEl = geomInstance.GetInstanceGeometry();
-                    foreach (var el in geomEl)
+
+                    foreach (var ge in geomEl)
                     {
-                        if(el is Solid) 
-                        {
-                        var elSolid = el as Solid;
-                            if (elSolid.Volume > 0)
-                            {                                
-                                foreach (Face face in elSolid.Faces)
-                                {
-                                    
-                                    foreach (Connector connector in mechEl.ConnectorManager.Connectors)
-                                    {
-                                        area += face.Area;
-                                        if (face is PlanarFace)
-                                        {
-                                            var faceNormal = (face as PlanarFace).FaceNormal;
-                                            if (connector.Direction == FlowDirectionType.Out) 
-                                            {
-                                                var bsX = connector.CoordinateSystem.BasisX * -1;
-                                                if (bsX.IsAlmostEqualTo(faceNormal))
-                                                {
-                                                    face1ToDelete = face.Area;
-                                                }
-                                            }
-                                            else if (connector.Direction == FlowDirectionType.In)
-                                            {
-                                                var bsX = connector.CoordinateSystem.BasisX;
-                                                if (bsX.IsAlmostEqualTo(faceNormal))
-                                                {
-                                                    face2ToDelete = face.Area;
-                                                }
-                                            }
-                                            if  (connector.Direction == FlowDirectionType.Bidirectional)
-                                            {
-                                                amountOfBidirectionalConnectors = mechEl.ConnectorManager.Connectors.Size;
-                                                var bsX = connector.CoordinateSystem.BasisX * -1;
-                                                if (bsX.IsAlmostEqualTo(faceNormal))
-                                                {                                                   
-                                                    face3ToDelete = face.Area;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }                            
-                            }
-                        }
+                        if (!(ge is Solid)) continue;
+
+                        area += (ge as Solid).SurfaceArea;
                     }
                 }
             }
             
-            return area/2-face1ToDelete-face2ToDelete-(face3ToDelete*amountOfBidirectionalConnectors);
-            
-            
+            foreach (Connector connector in mechEl.ConnectorManager.Connectors)
+            {
+                if (connector.Shape == ConnectorProfileType.Rectangular)
+                {
+                    area -= connector.Width * connector.Height;
+                }
+
+                else if (connector.Shape == ConnectorProfileType.Round)
+                    area -= Math.PI * Math.Pow(connector.Radius, 2);
+            }
+
+            return area;
         }
         public Result SetAreasOfInsulations (Document doc)
         {
