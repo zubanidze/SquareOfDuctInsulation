@@ -20,12 +20,15 @@ namespace DuctInsulationSq
     {
         public static double CalculateAreaOfFitting(FamilyInstance element, Document doc)
         {
-            Options options = new Options();
-            options.View = doc.ActiveView;
+            Options options = new Options
+            {
+                View = doc.ActiveView
+            };
             double area = 0;
             double face1ToDelete = 0;
             double face2ToDelete = 0;
             double face3ToDelete = 0;
+            int amountOfBidirectionalConnectors = 0;
             var geometryElement = element.get_Geometry(options);
             var mechEl = element.MEPModel as MechanicalFitting;
             foreach ( var geomObj in geometryElement)
@@ -40,8 +43,7 @@ namespace DuctInsulationSq
                         {
                         var elSolid = el as Solid;
                             if (elSolid.Volume > 0)
-                            {
-                                
+                            {                                
                                 foreach (Face face in elSolid.Faces)
                                 {
                                     
@@ -69,22 +71,23 @@ namespace DuctInsulationSq
                                             }
                                             if  (connector.Direction == FlowDirectionType.Bidirectional)
                                             {
+                                                amountOfBidirectionalConnectors = mechEl.ConnectorManager.Connectors.Size;
                                                 var bsX = connector.CoordinateSystem.BasisX * -1;
                                                 if (bsX.IsAlmostEqualTo(faceNormal))
-                                                {
-                                                    face3ToDelete = face.Area*2;
+                                                {                                                   
+                                                    face3ToDelete = face.Area;
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            
+                                }                            
                             }
                         }
                     }
                 }
             }
-            return area/2-face1ToDelete-face2ToDelete-face3ToDelete;
+            
+            return area/2-face1ToDelete-face2ToDelete-(face3ToDelete*amountOfBidirectionalConnectors);
             
             
         }
@@ -125,7 +128,6 @@ namespace DuctInsulationSq
                     if (hostElementBIC == BuiltInCategory.OST_DuctFitting)
                     {
                         double area = CalculateAreaOfFitting((hostElement as FamilyInstance), doc);
-                        Guid TYPE_PARAMETER_GUID = new Guid("7e8f7b32-a0ba-453f-940e-3fa1f60880ee");
                         ductInsulation.LookupParameter("Площадь_Изоляции").Set(area);
                     }
                 }
@@ -146,7 +148,6 @@ namespace DuctInsulationSq
 
         { 
             UIApplication uiApp = commandData.Application;
-            UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiApp.ActiveUIDocument.Document;
             return SetAreasOfInsulations(doc);
             
